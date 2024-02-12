@@ -36,7 +36,13 @@ class TapJira(Tap):
                 "flow",
                 oauth=th.ObjectType(
                     th.Property(
-                        "access_token", th.StringType, required=True, secret=True
+                        "refresh_token", th.StringType, required=True, secret=True
+                    ),
+                    th.Property(
+                        "client_id", th.StringType, required=True
+                    ),
+                    th.Property(
+                        "client_secret", th.StringType, required=True, secret=True
                     ),
                     additional_properties=False,
                 ),

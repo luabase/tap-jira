@@ -19,10 +19,13 @@ plugins:
     - name: domain
     - name: auth_type
     - name: auth.flow
-    - name: auth.access_token
-      kind: password
     - name: auth.username
     - name: auth.password
+      kind: password
+    - name: auth.client_id
+    - name: auth.client_secret
+      kind: password
+    - name: auth.refresh_token
       kind: password
 environments:
 - name: dev
