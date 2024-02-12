@@ -1,10 +1,12 @@
 """REST client handling, including tap-jiraStream base class."""
 
 from __future__ import annotations
+import logging
 import os
-
 from pathlib import Path
 from typing import Any, Callable, Iterable
+
+
 import google.auth
 import google.auth.transport.requests
 import google.oauth2.id_token
@@ -18,7 +20,6 @@ from singer_sdk.streams import RESTStream
 _Auth = Callable[[requests.PreparedRequest], requests.PreparedRequest]
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 
-LOGGER = singer.get_logger()
 class JiraStream(RESTStream):
     """tap-jira stream class."""
 
@@ -54,8 +55,8 @@ class JiraStream(RESTStream):
             client_id = self.config["auth"]["client_id"]
             client_secret = self.config["auth"]["client_secret"]
 
-            LOGGER.info("Refreshing token")
-            LOGGER.info("Old refresh token: %s", refresh_token)
+            logging.info("Refreshing token")
+            logging.info("Old refresh token: %s", refresh_token)
             res = requests.post(
                 "https://auth.atlassian.com/oauth/token",
                 data={
@@ -65,13 +66,13 @@ class JiraStream(RESTStream):
                     "refresh_token": refresh_token,
                 },
             )
-            LOGGER.info("New refresh token: %s", res.json()["refresh_token"])
+            logging.info("New refresh token: %s", res.json()["refresh_token"])
             access_token = res.json()["access_token"]
 
             DEF_SCHEDULER_URL = os.environ.get('DEF_SCHEDULER_URL')
             TAP_INTEGRATION_ID = os.environ.get('TAP_INTEGRATION_ID')
             if not DEF_SCHEDULER_URL:
-                LOGGER.warn("DEF_SCHEDULER_URL not set. Tokens only persisted locally.")
+                logging.warn("DEF_SCHEDULER_URL not set. Tokens only persisted locally.")
             else:
                 try:
                     creds, project = google.auth.default()
@@ -80,9 +81,9 @@ class JiraStream(RESTStream):
                     auth_req = google.auth.transport.requests.Request()
                     id_token = google.oauth2.id_token.fetch_id_token(auth_req, DEF_SCHEDULER_URL + '/')
 
-                    LOGGER.info("Got id_token: {}".format(id_token))
+                    logging.info("Got id_token: {}".format(id_token))
                     url = DEF_SCHEDULER_URL + f'/v3/el/callback/update_integration_details/{TAP_INTEGRATION_ID}'
-                    LOGGER.info(f"Persisting tokens to {url}")
+                    logging.info(f"Persisting tokens to {url}")
                     res = requests.post(
                         url,
                         headers={
@@ -94,9 +95,9 @@ class JiraStream(RESTStream):
                         }
                     )
                     if res.status_code != 200:
-                        LOGGER.warn(f"Failed to persist refresh token to Definite. Status code: {res.status_code}")
+                        logging.warn(f"Failed to persist refresh token to Definite. Status code: {res.status_code}")
                 except Exception as e:
-                    LOGGER.warn(f"Failed to persist refresh token to Definite. Error: {e}")
+                    logging.warn(f"Failed to persist refresh token to Definite. Error: {e}")
 
             return BearerTokenAuthenticator.create_for_stream(
                 self,
