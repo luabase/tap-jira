@@ -16,7 +16,7 @@ plugins:
     settings:
     - name: start_date
     - name: end_date
-    - name: domain
+    - name: cloud_id
     - name: auth_type
     - name: auth.flow
     - name: auth.username

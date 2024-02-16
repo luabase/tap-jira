@@ -2977,8 +2977,8 @@ class BoardStream(JiraStream):
 
     @property
     def url_base(self) -> str:
-        domain = self.config["domain"]
-        return "https://{}:443/rest/agile/1.0".format(domain)
+        cloud_id = self.config["cloud_id"]
+        base_url = "https://api.atlassian.com/ex/jira/{}/rest/api/3".format(cloud_id)
 
     def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
         """Return a context dictionary for child streams."""
@@ -3022,8 +3022,8 @@ class SprintStream(JiraStream):
 
     @property
     def url_base(self) -> str:
-        domain = self.config["domain"]
-        return "https://{}:443/rest/agile/1.0".format(domain)
+        cloud_id = self.config["cloud_id"]
+        base_url = "https://api.atlassian.com/ex/jira/{}/rest/api/3".format(cloud_id)
 
     def post_process(self, row: dict, context: dict) -> dict:
         row["boardId"] = context["board_id"]
