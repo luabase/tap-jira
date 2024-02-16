@@ -1,7 +1,13 @@
 """tap-jira tap class."""
 
 from __future__ import annotations
+import logging
+import os
 
+import google.auth
+import google.auth.transport.requests
+import google.oauth2.id_token
+import requests
 from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
 
@@ -61,6 +67,62 @@ class TapJira(Tap):
             ),
         ),
     ).to_dict()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # refresh access token if using oauth
+        if self.config["auth"]["flow"] == "oauth":
+            refresh_token = self.config["auth"]["refresh_token"]
+            client_id = self.config["auth"]["client_id"]
+            client_secret = self.config["auth"]["client_secret"]
+
+            logging.info("Refreshing token")
+            logging.info("Old refresh token: %s", refresh_token)
+            res = requests.post(
+                "https://auth.atlassian.com/oauth/token",
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": refresh_token,
+                },
+            )
+            logging.info("New access token: %s", res.json()["access_token"])
+            logging.info("New refresh token: %s", res.json()["refresh_token"])
+            self.config["auth"]["refresh_token"] = res.json()["refresh_token"]
+            self.config["auth"]["access_token"] = res.json()["access_token"]
+
+            DEF_SCHEDULER_URL = os.environ.get('DEF_SCHEDULER_URL')
+            TAP_INTEGRATION_ID = os.environ.get('TAP_INTEGRATION_ID')
+            if not DEF_SCHEDULER_URL:
+                logging.warn("DEF_SCHEDULER_URL not set. Tokens only persisted locally.")
+            else:
+                try:
+                    creds, project = google.auth.default()
+                    # creds.valid is False, and creds.token is None
+                    # Need to refresh credentials to populate those
+                    auth_req = google.auth.transport.requests.Request()
+                    id_token = google.oauth2.id_token.fetch_id_token(auth_req, DEF_SCHEDULER_URL + '/')
+
+                    url = DEF_SCHEDULER_URL + f'/v3/el/callback/update_integration_details/{TAP_INTEGRATION_ID}'
+                    logging.info(f"Persisting tokens to {url}")
+                    res = requests.post(
+                        url,
+                        headers={
+                            'Authorization': f'Bearer {id_token}',
+                            'Content-Type': 'application/json'
+                        },
+                        json={
+                            'refreshToken': self.refresh_token
+                        }
+                    )
+                    if res.status_code != 200:
+                        logging.warn(f"Failed to persist refresh token to Definite. Status code: {res.status_code}")
+                except Exception as e:
+                    logging.warn(f"Failed to persist refresh token to Definite. Error: {e}")
+
+
 
     def discover_streams(self) -> list[streams.JiraStream]:
         """Return a list of discovered streams.
