@@ -31,8 +31,8 @@ class JiraStream(RESTStream):
         """
         Returns base url
         """
-        domain = self.config["domain"]
-        base_url = "https://{}:443/rest/api/3".format(domain)
+        cloud_id = self.config["cloud_id"]
+        base_url = "https://api.atlassian.com/ex/jira/{}/rest/api/3".format(cloud_id)
         return base_url
 
     @property

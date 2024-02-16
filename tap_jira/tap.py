@@ -31,9 +31,9 @@ class TapJira(Tap):
             description="Latest record date to sync",
         ),
         th.Property(
-            "domain",
+            "cloud_id",
             th.StringType,
-            description="Site URL",
+            description="JIRA Cloud ID",
             required=True,
         ),
         th.Property(
