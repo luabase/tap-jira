@@ -1,12 +1,15 @@
 """REST client handling, including tap-jiraStream base class."""
 
 from __future__ import annotations
+from http import HTTPStatus
+import logging
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
 
 import requests
 from singer_sdk.authenticators import BasicAuthenticator, BearerTokenAuthenticator
+from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.pagination import BaseAPIPaginator
 from singer_sdk.streams import RESTStream
@@ -132,3 +135,32 @@ class JiraStream(RESTStream):
             if len(_value) == 0 or total <= previous_token + results:
                 return None
         return previous_token + results
+
+    def validate_response(self, response: requests.Response) -> None:
+        """Validate the response from the API.
+
+        Args:
+            response: The response from the API.
+
+        Raises:
+            singer_sdk.exceptions.TapException: If the response is invalid.
+        """
+        # jira permissions are complicated and user might not have access to a specific
+        # endpoint. on a 403 just log the error and continue.
+        if response.status_code == HTTPStatus.FORBIDDEN:
+            logging.error("Insufficient permissions for path: %s", response.url)
+        else:
+            if (
+                response.status_code in self.extra_retry_statuses
+                or response.status_code >= HTTPStatus.INTERNAL_SERVER_ERROR
+            ):
+                msg = self.response_error_message(response)
+                raise RetriableAPIError(msg, response)
+
+            if (
+                HTTPStatus.BAD_REQUEST
+                <= response.status_code
+                < HTTPStatus.INTERNAL_SERVER_ERROR
+            ):
+                msg = self.response_error_message(response)
+                raise FatalAPIError(msg)
