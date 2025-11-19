@@ -27,32 +27,66 @@ class TapJira(Tap):
         th.Property(
             "domain",
             th.StringType,
-            description="Site URL",
+            description="The Domain for your Jira account, e.g. meltano.atlassian.net",
             required=True,
         ),
         th.Property(
-            "auth",
-            th.DiscriminatedUnion(
-                "flow",
-                oauth=th.ObjectType(
-                    th.Property(
-                        "access_token", th.StringType, required=True, secret=True
-                    ),
-                    additional_properties=False,
-                ),
-                password=th.ObjectType(
-                    th.Property("username", th.StringType, required=True),
-                    th.Property("password", th.StringType, required=True, secret=True),
-                    additional_properties=False,
-                ),
-            ),
+            "api_token",
+            th.StringType,
+            description="Jira API Token.",
+            required=True,
+            secret=True,
+            title="API Token",
+        ),
+        th.Property(
+            "email",
+            th.StringType,
+            description="The user email for your Jira account.",
             required=True,
         ),
         th.Property(
             "page_size",
             th.ObjectType(
-                th.Property("issues", th.IntegerType, description="Page size for issues stream", default=100),
+                th.Property(
+                    "issues",
+                    th.IntegerType,
+                    description="Page size for issues stream",
+                    default=100,
+                ),
             ),
+        ),
+        th.Property(
+            "stream_options",
+            th.ObjectType(
+                th.Property(
+                    "issues",
+                    th.ObjectType(
+                        th.Property(
+                            "jql",
+                            th.StringType,
+                            description="A JQL query to filter issues",
+                            title="JQL Query",
+                            default="id != null",
+                        ),
+                        th.Property(
+                            "fields",
+                            th.StringType,
+                            description="A comma-separated list of fields to include",
+                            title="Fields",
+                            default="*all",
+                        ),
+                    ),
+                    title="Issues Stream Options",
+                    description="Options specific to the issues stream",
+                ),
+            ),
+            description="Options for individual streams",
+        ),
+        th.Property(
+            "include_audit_logs",
+            th.BooleanType,
+            description="Include the audit logs stream",
+            default=False,
         ),
     ).to_dict()
 
@@ -62,7 +96,7 @@ class TapJira(Tap):
         Returns:
             A list of discovered streams.
         """
-        return [
+        stream_list = [
             streams.UsersStream(self),
             streams.FieldStream(self),
             streams.ServerInfoStream(self),
@@ -76,7 +110,6 @@ class TapJira(Tap):
             streams.PermissionHolderStream(self),
             streams.SprintStream(self),
             streams.ProjectRoleActorStream(self),
-            streams.AuditingStream(self),
             streams.DashboardStream(self),
             streams.FilterSearchStream(self),
             streams.FilterDefaultShareScopeStream(self),
@@ -95,6 +128,7 @@ class TapJira(Tap):
             streams.IssueWorklogs(self),
         ]
 
+        if self.config.get("include_audit_logs", False):
+            stream_list.append(streams.AuditingStream(self))
 
-if __name__ == "__main__":
-    TapJira.cli()
+        return stream_list
